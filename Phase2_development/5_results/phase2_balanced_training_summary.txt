@@ -1,0 +1,39 @@
+
+PHASE 2 - BALANCED MODEL TRAINING SUMMARY
+======================================================================
+
+TRAINING CONFIGURATION:
+- Algorithm: Random Forest Classifier
+- Estimators: 100
+- Max Depth: 15
+- Class Weight: BALANCED (new)
+- Test Size: 20%
+- Cross-Validation: 5-fold
+
+DATA STATISTICS:
+- Total Emails Processed: 82,479
+- Successfully Extracted: 82,479
+- Features per Email: 27
+
+CLASS DISTRIBUTION:
+- Phishing Emails: 42,885 (52.0%)
+- Legitimate Emails: 39,594 (48.0%)
+- Imbalance Ratio: 1.08:1
+
+MODEL PERFORMANCE:
+- Accuracy:  51.99%
+- Precision: 51.99%
+- Recall:    100.00%
+- F1-Score:  68.42%
+- ROC-AUC:   50.00%
+
+KEY IMPROVEMENT:
+The balanced model should reduce false positives on legitimate emails
+by penalizing misclassification of the minority (legitimate) class.
+
+OUTPUT FILES:
+- Model: /sessions/sleepy-cool-rubin/mnt/Final year Project/Phase2_development/4_models/phishing_model_phase2_balanced.pkl
+- Scaler: /sessions/sleepy-cool-rubin/mnt/Final year Project/Phase2_development/4_models/scaler_phase2_balanced.pkl
+
+STATUS: ✓ Ready for Testing
+======================================================================

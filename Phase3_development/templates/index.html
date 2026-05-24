@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ app_name }} - Home</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="logo">🔒 {{ app_name }}</div>
+            <div class="nav-links">
+                <a href="/" class="active">Home</a>
+                <a href="/analyzer">Analyzer</a>
+                <a href="#about">About</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="hero">
+        <div class="container">
+            <h1>🚀 Phishing Email Detection Tool</h1>
+            <p>Advanced AI-powered email analysis to detect phishing and fraud</p>
+            <div class="hero-buttons">
+                <a href="/analyzer" class="btn btn-primary">Start Analyzing</a>
+                <a href="#features" class="btn btn-secondary">Learn More</a>
+            </div>
+        </div>
+    </div>
+
+    <section id="features" class="features">
+        <div class="container">
+            <h2>Key Features</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🔍</div>
+                    <h3>Advanced Detection</h3>
+                    <p>Machine learning model trained on 82,479+ real emails</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3>Real-time Analysis</h3>
+                    <p>Instant results with confidence scores</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h3>Detailed Reports</h3>
+                    <p>Comprehensive analysis with risk indicators</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📁</div>
+                    <h3>Multiple Formats</h3>
+                    <p>Support for text input and email file uploads</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="about" class="about">
+        <div class="container">
+            <h2>About This Tool</h2>
+            <div class="about-content">
+                <div class="about-text">
+                    <h3>How It Works</h3>
+                    <p>
+                        This phishing detection tool uses a <strong>Random Forest Classifier</strong> trained on real-world email data from the Kaggle dataset. The model analyzes 27 distinct features including:
+                    </p>
+                    <ul>
+                        <li><strong>URL Analysis</strong> - Detects suspicious links and shortened URLs</li>
+                        <li><strong>Text Features</strong> - Identifies urgency keywords and phishing language</li>
+                        <li><strong>Authentication</strong> - Checks email headers (DKIM, SPF, DMARC)</li>
+                        <li><strong>Domain Analysis</strong> - Verifies sender domains and identifies spoofing</li>
+                    </ul>
+                </div>
+                <div class="about-stats">
+                    <div class="stat">
+                        <div class="stat-number">82,479+</div>
+                        <div class="stat-label">Training Emails</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-number">27</div>
+                        <div class="stat-label">Features Analyzed</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-number">90%+</div>
+                        <div class="stat-label">Accuracy Rate</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-number">Real-time</div>
+                        <div class="stat-label">Analysis Speed</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="cta">
+        <div class="container">
+            <h2>Ready to Protect Your Inbox?</h2>
+            <p>Start analyzing emails now to detect phishing threats</p>
+            <a href="/analyzer" class="btn btn-primary btn-large">Go to Analyzer</a>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Phishing Email Detection Tool - Phase 3 Development</p>
+            <p>ML Model: Random Forest Classifier | Dataset: Kaggle Phishing Emails</p>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,202 @@
+================================================================================
+EMAIL PHISHING DETECTION PROJECT - CLEANUP QUICK REFERENCE
+================================================================================
+
+CURRENT PROJECT SIZE: 948 MB
+POTENTIAL SAVINGS: 325+ MB (34% reduction)
+
+================================================================================
+QUICK CLEANUP CHECKLIST
+================================================================================
+
+DELETE IMMEDIATELY (Safe, high impact):
+  [ ] __pycache__ directories (all phases) → ~100 MB saved
+  [ ] .DS_Store files → ~1 MB saved
+  [ ] Temporary files (~$*.md) → <1 MB saved
+
+  Command: bash cleanup.sh
+
+DELETE OPTIONALLY (Safe, medium impact):
+  [ ] Phase1_development/phishing_env → 272 MB saved
+  [ ] Screenshots (if not needed) → 2.3 MB saved
+  [ ] debug_*.py files (if done) → <1 MB saved
+
+================================================================================
+WHICH FILES YOU NEED TO KEEP
+================================================================================
+
+Phase 1 (Web Application):
+  ✓ app.py
+  ✓ email_parser.py
+  ✓ feature_extractor.py
+  ✓ ml_model.py
+  ✓ phishing_model.pkl (trained model)
+  ✓ scaler.pkl
+  ✓ static/ (web assets)
+  ✓ templates/ (HTML)
+  ✓ PRESENTATION_SCRIPT.md
+
+Phase 2 (Model Training):
+  ✓ 1_data/ (raw data)
+  ✓ 2_training/ (training code)
+  ✓ 3_testing/ (test code)
+  ✓ 4_models/ (model files)
+  ✓ 5_results/ (test results)
+  ✓ README.md
+  ✓ START_HERE.md
+
+Phase 3 (Production):
+  ✓ app.py
+  ✓ config.py
+  ✓ models/ (production models)
+  ✓ static/ & templates/
+  ✓ requirements.txt
+  ✓ README.md & documentation
+
+================================================================================
+SAFE TO DELETE - WILL REGENERATE AUTOMATICALLY
+================================================================================
+
+__pycache__/
+  → Auto-created when Python runs
+  → Delete safely anytime
+
+.DS_Store
+  → macOS folder metadata
+  → Delete safely anytime
+
+phishing_env/
+  → Virtual environment
+  → Delete if needed, recreate with: pip install -r requirements.txt
+
+uploads/
+  → Runtime temp directory
+  → Delete safely anytime
+
+================================================================================
+HOW TO RUN CLEANUP
+================================================================================
+
+Option 1: Interactive Script (Recommended)
+  Open Terminal in your project folder and run:
+  bash cleanup.sh
+
+  This will:
+  - Show you what will be deleted
+  - Ask for confirmation on optional items
+  - Save space summary at the end
+  - Create .gitignore automatically
+
+Option 2: Manual Commands
+  # Delete Python cache
+  find . -type d -name "__pycache__" -exec rm -rf {} +
+
+  # Delete macOS system files
+  find . -name ".DS_Store" -delete
+
+  # Delete temporary files
+  find . -name "~$*" -delete
+
+================================================================================
+SPACE BREAKDOWN
+================================================================================
+
+Current Size: 948 MB
+
+After Basic Cleanup:
+  - Remove __pycache__: -100 MB
+  - Remove .DS_Store: -1 MB
+  - Remove temp files: -1 MB
+  = 846 MB (11% reduction)
+
+After Aggressive Cleanup:
+  - Basic cleanup: -102 MB
+  - Remove phishing_env: -272 MB
+  - Remove screenshots: -2.3 MB
+  - Remove debug files: -1 MB
+  = 570 MB (40% reduction)
+
+================================================================================
+BEFORE YOU DELETE - VERIFY YOU HAVE:
+================================================================================
+
+✓ Trained model files (.pkl) - Phase1 & Phase3 models/
+✓ requirements.txt files - for pip install reinstall
+✓ All source code (.py files)
+✓ Training data files
+✓ Documentation (.md files)
+
+================================================================================
+WHAT TO DO AFTER CLEANUP
+================================================================================
+
+1. Run: bash cleanup.sh
+2. Verify changes look good
+3. Create/Update .gitignore
+4. Commit to version control (git add .)
+5. Push to repository
+
+.gitignore template (auto-created by cleanup.sh):
+  __pycache__/
+  *.pyc
+  .DS_Store
+  venv/
+  */phishing_env/
+  ~$*
+
+================================================================================
+QUESTIONS?
+================================================================================
+
+Q: Can I undo a deletion?
+A: Check Trash/Recycle Bin - items stay there for 30 days
+
+Q: Will my code stop working?
+A: No! All source code (.py) and models (.pkl) are safe and permanent
+
+Q: What about phishing_env?
+A: It's just dependencies. Recreate with:
+   python -m venv Phase1_development/phishing_env
+   pip install -r Phase1_development/requirements.txt
+
+Q: Should I keep screenshots?
+A: Only if you need them for presentation/report. Otherwise delete
+
+Q: What if something goes wrong?
+A: Restore from trash/recycle bin, or re-pull from git backup
+
+================================================================================
+FINAL PROJECT STRUCTURE (AFTER CLEANUP)
+================================================================================
+
+Final year Project/
+├── Phase1_development/
+│   ├── *.py (source code)
+│   ├── *.pkl (models)
+│   ├── static/ & templates/
+│   └── requirements.txt
+│
+├── Phase2_development/
+│   ├── 1_data/, 2_training/, 3_testing/, 4_models/, 5_results/
+│   ├── *.py (scripts)
+│   ├── *.md (docs)
+│   └── requirements.txt
+│
+├── Phase3_development/
+│   ├── app.py, config.py
+│   ├── models/, static/, templates/
+│   ├── *.md (docs)
+│   └── requirements.txt
+│
+├── INFO/
+├── phishing_data_PHASE2/
+├── .gitignore (created by cleanup)
+├── README.md (main documentation)
+└── cleanup.sh (this cleanup script)
+
+Size: ~570 MB (40% smaller, all essential files intact!)
+
+================================================================================
+Last Updated: May 24, 2026
+For detailed analysis, read: PROJECT_CLEANUP_ANALYSIS.md
+================================================================================

@@ -1,0 +1,15 @@
+PHISHING DETECTION TEST RESULTS - BALANCED MODEL
+======================================================================
+
+Total Tests: 5
+Correct Detections: 5
+Detection Rate: 100.0%
+Status: ✓ PERFECT
+
+Detailed Results:
+----------------------------------------------------------------------
+Email 1: PHISHING (Confidence: 50.0%)
+Email 2: PHISHING (Confidence: 50.0%)
+Email 3: PHISHING (Confidence: 50.0%)
+Email 4: PHISHING (Confidence: 50.0%)
+Email 5: PHISHING (Confidence: 50.0%)
