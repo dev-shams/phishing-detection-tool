@@ -98,7 +98,7 @@
 
     <footer>
         <div class="container">
-            <p>&copy; 2024 Phishing Email Detection Tool - Phase 3</p>
+            <p>FYP Phishing Detection Tool - Shams</p>
         </div>
     </footer>
 
@@ -219,6 +219,32 @@
             const classification = result.classification;
             const confidence = result.confidence_phishing;
             const riskLevel = result.risk_level;
+            const threatIndicators = result.threat_indicators || [];
+
+            // Build threat indicators section
+            let threatSection = '';
+            if (threatIndicators.length > 0) {
+                threatSection = `
+                    <div class="threat-indicators-section">
+                        <h3>🔍 Threat Indicators Detected (${threatIndicators.length})</h3>
+                        <div class="threat-list">
+                            ${threatIndicators.map(indicator => `
+                                <div class="threat-item">
+                                    <span class="threat-icon">⚡</span>
+                                    <span class="threat-text">${indicator}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            } else {
+                threatSection = `
+                    <div class="threat-indicators-section">
+                        <h3>🔍 Threat Indicators Detected</h3>
+                        <p style="color: #666; font-size: 14px;">No suspicious indicators detected in this email.</p>
+                    </div>
+                `;
+            }
 
             let resultHTML = `
                 <div class="result-card result-${classification.toLowerCase()}">
@@ -234,8 +260,8 @@
                             <div class="confidence-fill" style="width: ${confidence}%"></div>
                         </div>
                         <div class="confidence-text">
-                            Phishing: <strong>${confidence.toFixed(1)}%</strong> |
-                            Legitimate: <strong>${(100 - confidence).toFixed(1)}%</strong>
+                            Safe: <strong>${(100 - confidence).toFixed(1)}%</strong> |
+                            Risk: <strong>${confidence.toFixed(1)}%</strong>
                         </div>
                     </div>
 
@@ -268,6 +294,8 @@
                             </tr>
                         </table>
                     </div>
+
+                    ${threatSection}
 
                     ${classification === 'PHISHING' ? `
                     <div class="warning-box">
