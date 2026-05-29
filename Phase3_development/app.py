@@ -4,12 +4,17 @@ Flask application for email phishing detection with web interface
 """
 
 import os
+import sys
 import logging
 from pathlib import Path
 from flask import Flask, render_template, request, jsonify, session
 from werkzeug.utils import secure_filename
+
+# Add models directory to path
+sys.path.insert(0, str(Path(__file__).parent / 'models'))
+
 from config import *
-from models import PhishingDetector
+from detector import PhishingDetector
 
 # Configure logging
 logging.basicConfig(
