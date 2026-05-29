@@ -10,11 +10,20 @@ from pathlib import Path
 from flask import Flask, render_template, request, jsonify, session
 from werkzeug.utils import secure_filename
 
-# Add models directory to path
-sys.path.insert(0, str(Path(__file__).parent / 'models'))
+# Add models directory to Python path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+models_dir = os.path.join(current_dir, 'models')
+if models_dir not in sys.path:
+    sys.path.insert(0, models_dir)
 
 from config import *
-from detector import PhishingDetector
+
+# Import detector
+try:
+    from detector import PhishingDetector
+except ImportError as e:
+    logging.error(f"Failed to import PhishingDetector: {e}")
+    raise
 
 # Configure logging
 logging.basicConfig(
