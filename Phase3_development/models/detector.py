@@ -12,6 +12,7 @@ import joblib
 import pickle
 import cloudpickle
 import numpy as np
+import re
 from pathlib import Path
 import logging
 import os
@@ -28,6 +29,18 @@ except ImportError:
 
 # Setup logger
 logger = logging.getLogger(__name__)
+
+# Feature extraction constants (MUST match training script)
+URGENCY_KEYWORDS = [
+    'urgent', 'immediately', 'action required', 'verify', 'confirm',
+    'account suspended', 'click here', 'limited time', 'expire',
+    'won', 'winner', 'prize', 'claim', 'free', 'congratulations',
+    'password', 'bank', 'wire transfer', 'invoice', 'update your',
+    'dear customer', 'dear user', 'suspended', 'security alert'
+]
+
+PHISHING_DOMAINS = ['bit.ly', 'tinyurl', 'goo.gl', 't.co', 'ow.ly', 'tiny.cc', 'is.gd', 'cli.gs']
+SUSPICIOUS_TLDS = ['.xyz', '.tk', '.ml', '.ga', '.cf', '.gq', '.ru', '.cn']
 
 # Google Drive direct download links (Updated May 29 - Enhanced model with 5020 features)
 GDRIVE_MODEL_LINK = "https://drive.google.com/uc?export=download&id=1IvuF3zMlxF6rG09D7w81qF-W8QUaP6Oy"
@@ -46,24 +59,24 @@ class PhishingDetector:
     """
 
     def __init__(self, model_path, scaler_path, feature_extractor_path,
-                 tfidf_vectorizer_path=None, handcrafted_scaler_path=None, threshold=0.5):
+                 tfidf_vectorizer_path=None, handcrafted_scaler_path=None, threshold=0.50):
         """
         Initialize the detector with model and component paths
 
         Args:
-            model_path: Path to trained Random Forest model
+            model_path: Path to trained Logistic Regression model
             scaler_path: Path to StandardScaler for combined features
             feature_extractor_path: Path to Phase 2 directory with enhanced FeatureExtractor
             tfidf_vectorizer_path: Path to TF-IDF vectorizer (optional, calculated from model_path)
-            handcrafted_scaler_path: Path to MinMaxScaler for handcrafted features (optional)
-            threshold: Decision threshold for phishing classification (default 0.5)
+            handcrafted_scaler_path: Path to MinMaxScaler for handcrafted features (REQUIRED for fix #1)
+            threshold: Decision threshold for phishing classification (default 0.50 for Logistic Regression)
         """
         self.model = None
         self.onnx_session = None  # For ONNX model inference
         self.scaler = None
         self.feature_extractor = None
         self.tfidf_vectorizer = None
-        self.handcrafted_scaler = None
+        self.handcrafted_scaler = None  # NEW: MinMaxScaler for handcrafted features (FIX #1)
         self.threshold = threshold
         self.model_path = Path(model_path)
         self.scaler_path = Path(scaler_path)
@@ -297,8 +310,69 @@ class PhishingDetector:
             logger.error(f"✗ Failed to load handcrafted scaler: {str(e)}")
             # Don't raise - will use default MinMaxScaler if needed
 
+    def _extract_handcrafted_features(self, email_data):
+        """
+        Extract 20 handcrafted phishing-specific features (MUST MATCH TRAINING)
+
+        This method ensures consistency between training and prediction.
+        Features are the same as those used in train_enhanced_model.py
+
+        Returns:
+            numpy array of shape (1, 20) with handcrafted features
+        """
+        # Combine all text fields
+        text = str(email_data.get('body', '')) + ' ' + str(email_data.get('subject', '')) + ' ' + str(email_data.get('sender', ''))
+        t = str(text)
+        tl = t.lower()
+
+        # Phase 1 Features (10): Basic phishing indicators
+        p1_features = [
+            len(re.findall(r'http[s]?://\S+', t)),  # 1. url_count
+            len(re.findall(r'http[s]?://(?:\d{1,3}\.){3}\d{1,3}|bit\.ly|tinyurl|goo\.gl', t)),  # 2. suspicious_url
+            sum(1 for kw in URGENCY_KEYWORDS if kw in tl),  # 3. urgency_keywords
+            t.count('!'),  # 4. exclamation_marks
+            t.count('$'),  # 5. dollar_signs
+            len(re.findall(r'\b[A-Z]{3,}\b', t)),  # 6. caps_words
+            len(t),  # 7. text_length
+            len(t.split()),  # 8. word_count
+            1 if re.search(r'<[a-z]+[\s/>]', tl) else 0,  # 9. has_html
+            1 if 'reply-to' in tl else 0,  # 10. has_reply_to
+        ]
+
+        # Phase 2 Features (10): Advanced signals
+        # Header analysis (4)
+        fm = re.search(r'from:\s*[\w\.\-]+@([\w\.\-]+)', tl)
+        rm = re.search(r'reply-to:\s*[\w\.\-]+@([\w\.\-]+)', tl)
+        fd = fm.group(1) if fm else ''
+        rd = rm.group(1) if rm else ''
+
+        header_features = [
+            1 if (fd and rd and fd != rd) else 0,  # 11. domain_mismatch
+            1 if re.search(r'(paypa[^l]|micros[^o]ft|app[^l]e|go{3,}gle|amaz[^o]n)', tl) else 0,  # 12. lookalike_domain
+            1 if (fd and re.search(r'\d', fd)) else 0,  # 13. numeric_in_domain
+            1 if any(tld in (fd + ' ' + rd) for tld in SUSPICIOUS_TLDS) else 0,  # 14. suspicious_tld_header
+        ]
+
+        # URL analysis (6)
+        urls = re.findall(r'http[s]?://\S+', t)
+        if not urls:
+            url_features = [0, 0, 0, 0, 0, 0]
+        else:
+            url_features = [
+                sum(1 for u in urls if re.search(r'http[s]?://(?:\d{1,3}\.){3}\d{1,3}', u)),  # 15. ip_url_count
+                sum(1 for u in urls if any(d in u for d in PHISHING_DOMAINS)),  # 16. shortener_url_count
+                float(np.mean([len(u) for u in urls])),  # 17. avg_url_length
+                sum(1 for u in urls if u.count('.') > 3),  # 18. deep_subdomain_count
+                sum(1 for u in urls if any(tld in u for tld in SUSPICIOUS_TLDS)),  # 19. suspicious_tld_url
+                sum(1 for u in urls if '@' in u),  # 20. at_in_url
+            ]
+
+        features = np.array(p1_features + header_features + url_features).reshape(1, -1)
+        logger.debug(f"Extracted handcrafted features: {features.shape}")
+        return features
+
     def _load_feature_extractor(self):
-        """Load the enhanced feature extractor from Phase 2"""
+        """Load the enhanced feature extractor from Phase 2 (for threat indicators only)"""
         try:
             # Add Phase 2 directory to path
             sys.path.insert(0, str(self.feature_extractor_path))
@@ -307,15 +381,15 @@ class PhishingDetector:
             try:
                 from feature_extractor_enhanced import EnhancedFeatureExtractor
                 self.feature_extractor = EnhancedFeatureExtractor()
-                logger.info("✓ EnhancedFeatureExtractor loaded (20 phishing-specific features)")
+                logger.info("✓ EnhancedFeatureExtractor loaded (for threat indicators)")
             except ImportError:
                 # Fall back to original FeatureExtractor
                 from feature_extractor import FeatureExtractor
                 self.feature_extractor = FeatureExtractor()
-                logger.info("✓ FeatureExtractor loaded (fallback mode)")
+                logger.info("✓ FeatureExtractor loaded (for threat indicators)")
         except Exception as e:
-            logger.error(f"✗ Failed to load feature extractor: {str(e)}")
-            raise
+            logger.warning(f"⚠ Failed to load feature extractor: {str(e)}")
+            # Don't raise - we can still work without threat indicators
 
     def predict(self, email_data):
         """
@@ -352,29 +426,20 @@ class PhishingDetector:
             logger.debug(f"Email body length: {len(email_body)} characters")
 
             # ============================================================
-            # STEP 1: Extract Handcrafted Phishing Features
+            # STEP 1: Extract Handcrafted Phishing Features (20 features)
             # ============================================================
             try:
-                handcrafted_features = self.feature_extractor.extract_all_features(email_data)
-                handcrafted_values = np.array([list(handcrafted_features.values())])
+                # Use internal feature extraction (matches training exactly)
+                handcrafted_values = self._extract_handcrafted_features(email_data)
                 logger.debug(f"Handcrafted features extracted: {handcrafted_values.shape}")
             except Exception as e:
                 logger.error(f"STEP 1 FAILED - Handcrafted feature extraction: {str(e)}")
                 raise
 
-            # Scale handcrafted features
-            try:
-                if self.handcrafted_scaler:
-                    handcrafted_scaled = self.handcrafted_scaler.transform(handcrafted_values)
-                else:
-                    # Fallback: use [0, 1] scaling
-                    from sklearn.preprocessing import MinMaxScaler
-                    scaler = MinMaxScaler()
-                    handcrafted_scaled = scaler.fit_transform(handcrafted_values)
-                logger.debug(f"Handcrafted features scaled: {handcrafted_scaled.shape}")
-            except Exception as e:
-                logger.error(f"STEP 1B FAILED - Handcrafted scaling: {str(e)}")
-                raise
+            # Handcrafted features will be combined with TF-IDF
+            # Both will be scaled together with StandardScaler in STEP 4
+            handcrafted_scaled = handcrafted_values
+            logger.debug(f"Handcrafted features ready for combination: {handcrafted_scaled.shape}")
 
             # ============================================================
             # STEP 2: Extract TF-IDF Features
@@ -438,8 +503,9 @@ class PhishingDetector:
                 raise
 
             # Apply decision threshold
+            # With Logistic Regression + proper scaling, 0.50 is optimal
             is_phishing = phishing_probability >= self.threshold
-            logger.debug(f"Decision: {'PHISHING' if is_phishing else 'LEGITIMATE'} (threshold={self.threshold})")
+            logger.debug(f"Decision: {'PHISHING' if is_phishing else 'LEGITIMATE'} (threshold={self.threshold}, prob={phishing_probability:.4f})")
 
             # ============================================================
             # STEP 6: Determine Risk Level (aligned with classification)

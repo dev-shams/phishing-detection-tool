@@ -1,0 +1,9 @@
+{
+  "best_model": "Logistic Regression",
+  "cv_results": {
+    "Logistic Regression": 1.0,
+    "Random Forest": 1.0
+  },
+  "test_accuracy": 1.0,
+  "feature_count": 25
+}

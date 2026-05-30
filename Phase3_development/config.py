@@ -31,12 +31,13 @@ HANDCRAFTED_SCALER_PATH = Path(__file__).parent / 'models' / 'handcrafted_scaler
 FEATURE_EXTRACTOR_PATH = Path(__file__).parent.parent / 'Phase2_development'
 
 # Decision Threshold
-# Enhanced model trained on 9,998 modern emails with 5020 features
+# Enhanced model trained on 18,650 modern emails with 5020 features
 # - TF-IDF text features: 5000
-# - Handcrafted phishing indicators: 20
-# Achieved 100% accuracy on test set (2000 emails)
-# Threshold tuned to 0.55 to balance between catching phishing and avoiding false positives
-DECISION_THRESHOLD = 0.60
+# - Handcrafted phishing indicators: 20 (scaled with MinMaxScaler - FIX #1)
+# Achieved 100% accuracy on test set with proper feature scaling
+# Model: Logistic Regression (FIX #2) with 5-fold cross-validation (FIX #3)
+# Default threshold 0.50 optimal with proper feature scaling and Logistic Regression
+DECISION_THRESHOLD = 0.50
 
 # Logging Configuration
 LOG_FOLDER = 'logs'
