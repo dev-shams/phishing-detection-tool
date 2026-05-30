@@ -511,16 +511,23 @@ class PhishingDetector:
 
                 # For out-of-domain emails with extreme confidence, apply sanity check
                 if is_out_of_domain and phishing_probability >= 0.99:
-                    logger.warning(f"Out-of-domain email with extreme confidence - treating as LEGITIMATE")
-                    # Out-of-domain emails with no vocabulary matches should not be flagged as phishing
-                    # unless they have explicit handcrafted phishing indicators
-                    has_phishing_indicators = np.any(handcrafted_values > 0)
-                    if has_phishing_indicators:
+                    logger.warning(f"Out-of-domain email with extreme confidence - applying smart check")
+                    # Check for SPECIFIC threatening features (not just any feature > 0)
+                    # Indices based on _extract_handcrafted_features order:
+                    # 1=suspicious_url, 2=urgency_keywords,
+                    # 11=lookalike_domain, 12=numeric_domain, 13=suspicious_tld_header,
+                    # 14=ip_url_count, 15=shortener_url_count, 17=deep_subdomain, 18=suspicious_tld_url
+                    threatening_indices = [1, 2, 11, 12, 13, 14, 15, 17, 18]
+                    has_threatening_features = any(handcrafted_values[0][i] > 0 for i in threatening_indices if i < handcrafted_values.shape[1])
+
+                    if has_threatening_features:
                         # Has actual phishing signals
                         phishing_probability = 0.65  # Moderate confidence
+                        logger.debug(f"Out-of-domain email has threatening phishing features")
                     else:
                         # No phishing signals detected
                         phishing_probability = 0.10  # Very low confidence - safe
+                        logger.debug(f"Out-of-domain email is benign (no threatening features)")
                     logger.debug(f"Adjusted probability (out-of-domain): {phishing_probability:.4f}")
             except Exception as e:
                 logger.error(f"STEP 6 FAILED - Model prediction: {str(e)}")
