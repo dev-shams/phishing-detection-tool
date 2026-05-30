@@ -36,7 +36,7 @@ FEATURE_EXTRACTOR_PATH = Path(__file__).parent.parent / 'Phase2_development'
 # - Handcrafted phishing indicators: 20
 # Achieved 100% accuracy on test set (2000 emails)
 # Threshold tuned to 0.55 to balance between catching phishing and avoiding false positives
-DECISION_THRESHOLD = 0.55
+DECISION_THRESHOLD = 0.60
 
 # Logging Configuration
 LOG_FOLDER = 'logs'
