@@ -511,10 +511,17 @@ class PhishingDetector:
 
                 # For out-of-domain emails with extreme confidence, apply sanity check
                 if is_out_of_domain and phishing_probability >= 0.99:
-                    logger.warning(f"Out-of-domain email with extreme confidence - applying conservative adjustment")
-                    # Adjust to moderate confidence instead of extreme
-                    phishing_probability = 0.50
-                    logger.debug(f"Adjusted probability: {phishing_probability:.4f}")
+                    logger.warning(f"Out-of-domain email with extreme confidence - treating as LEGITIMATE")
+                    # Out-of-domain emails with no vocabulary matches should not be flagged as phishing
+                    # unless they have explicit handcrafted phishing indicators
+                    has_phishing_indicators = np.any(handcrafted_values > 0)
+                    if has_phishing_indicators:
+                        # Has actual phishing signals
+                        phishing_probability = 0.65  # Moderate confidence
+                    else:
+                        # No phishing signals detected
+                        phishing_probability = 0.10  # Very low confidence - safe
+                    logger.debug(f"Adjusted probability (out-of-domain): {phishing_probability:.4f}")
             except Exception as e:
                 logger.error(f"STEP 6 FAILED - Model prediction: {str(e)}")
                 raise
