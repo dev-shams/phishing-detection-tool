@@ -35,8 +35,8 @@ FEATURE_EXTRACTOR_PATH = Path(__file__).parent.parent / 'Phase2_development'
 # - TF-IDF text features: 5000
 # - Handcrafted phishing indicators: 20
 # Achieved 100% accuracy on test set (2000 emails)
-# Threshold set to 0.75 to reduce false positives on legitimate emails
-DECISION_THRESHOLD = 0.75
+# Threshold tuned to 0.55 to balance between catching phishing and avoiding false positives
+DECISION_THRESHOLD = 0.55
 
 # Logging Configuration
 LOG_FOLDER = 'logs'
