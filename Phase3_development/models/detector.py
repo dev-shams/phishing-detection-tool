@@ -448,9 +448,11 @@ class PhishingDetector:
                 if self.tfidf_vectorizer:
                     tfidf_features = self.tfidf_vectorizer.transform([email_body]).toarray()
                 else:
-                    # Fallback: use zeros if vectorizer not available
-                    logger.warning("TF-IDF vectorizer not available, using zeros")
-                    tfidf_features = np.zeros((1, 5000))
+                    # Fallback: use zeros matching actual vectorizer size
+                    # NOTE: Training data only had ~5 unique terms due to homogeneity
+                    n_tfidf = 5 if not hasattr(self, '_n_tfidf') else self._n_tfidf
+                    logger.warning(f"TF-IDF vectorizer not available, using {n_tfidf} zero features")
+                    tfidf_features = np.zeros((1, n_tfidf))
                 logger.debug(f"TF-IDF features extracted: {tfidf_features.shape}")
             except Exception as e:
                 logger.error(f"STEP 2 FAILED - TF-IDF extraction: {str(e)}")
@@ -477,7 +479,15 @@ class PhishingDetector:
                 raise
 
             # ============================================================
-            # STEP 5: Make Prediction
+            # STEP 5: Detect Out-of-Domain Emails
+            # ============================================================
+            # Check if email matches training vocabulary
+            tfidf_nonzero = np.count_nonzero(np.array(self.tfidf_vectorizer.transform([email_body]).toarray()) if self.tfidf_vectorizer else [])
+            is_out_of_domain = tfidf_nonzero == 0  # No vocabulary matches
+            logger.debug(f"TF-IDF vocabulary matches: {tfidf_nonzero} (out-of-domain: {is_out_of_domain})")
+
+            # ============================================================
+            # STEP 6: Make Prediction
             # ============================================================
             try:
                 if self.onnx_session:
@@ -498,8 +508,15 @@ class PhishingDetector:
                     probabilities = self.model.predict_proba(X_scaled)[0]
                     phishing_probability = float(probabilities[1])
                     logger.debug(f"Prediction made (sklearn): {phishing_probability:.4f}")
+
+                # For out-of-domain emails with extreme confidence, apply sanity check
+                if is_out_of_domain and phishing_probability >= 0.99:
+                    logger.warning(f"Out-of-domain email with extreme confidence - applying conservative adjustment")
+                    # Adjust to moderate confidence instead of extreme
+                    phishing_probability = 0.50
+                    logger.debug(f"Adjusted probability: {phishing_probability:.4f}")
             except Exception as e:
-                logger.error(f"STEP 5 FAILED - Model prediction: {str(e)}")
+                logger.error(f"STEP 6 FAILED - Model prediction: {str(e)}")
                 raise
 
             # Apply decision threshold
@@ -508,7 +525,7 @@ class PhishingDetector:
             logger.debug(f"Decision: {'PHISHING' if is_phishing else 'LEGITIMATE'} (threshold={self.threshold}, prob={phishing_probability:.4f})")
 
             # ============================================================
-            # STEP 6: Determine Risk Level (aligned with classification)
+            # STEP 7: Determine Risk Level (aligned with classification)
             # ============================================================
             try:
                 if is_phishing:
@@ -529,7 +546,7 @@ class PhishingDetector:
                 raise
 
             # ============================================================
-            # STEP 7: Extract Threat Indicators
+            # STEP 8: Extract Threat Indicators
             # ============================================================
             threat_indicators = []
             try:
@@ -541,7 +558,7 @@ class PhishingDetector:
                 logger.warning(f"Could not extract threat indicators: {str(e)}")
 
             # ============================================================
-            # STEP 8: Prepare Result
+            # STEP 9: Prepare Result
             # ============================================================
             result = {
                 'classification': 'PHISHING' if is_phishing else 'LEGITIMATE',
