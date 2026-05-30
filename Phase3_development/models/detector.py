@@ -567,6 +567,16 @@ class PhishingDetector:
                 # Use the get_threat_indicators method if available
                 if hasattr(self.feature_extractor, 'get_threat_indicators'):
                     threat_indicators = self.feature_extractor.get_threat_indicators(email_data)
+
+                    # Filter: Remove "lookalike domain" indicator if no URLs present
+                    # This prevents false positives from pattern matching in text
+                    has_urls = 'urls' in email_data and bool(email_data.get('urls')) or \
+                               len(re.findall(r'http[s]?://\S+', email_body)) > 0
+                    if not has_urls:
+                        threat_indicators = [t for t in threat_indicators
+                                           if 'lookalike domain' not in t.lower() and
+                                              'domain' not in t.lower()]
+
                     logger.debug(f"Threat indicators extracted: {len(threat_indicators)} found")
             except Exception as e:
                 logger.warning(f"Could not extract threat indicators: {str(e)}")
