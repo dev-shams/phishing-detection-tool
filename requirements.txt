@@ -1,5 +1,5 @@
 Flask==2.3.2
-numpy=
+numpy
 pandas
 scikit-learn
 Werkzeug==2.3.6
