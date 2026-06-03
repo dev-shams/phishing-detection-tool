@@ -1,151 +1,178 @@
 # Phishing Email Detection Tool
 
-Final Year Project, BSc (Hons) Cyber Security
-School of Computer Science and Informatics
-De Montfort University, Dubai — Academic Year 2025/26
+A web application that classifies email messages as **phishing** or **legitimate** using a calibrated Logistic Regression model trained on 25,116 emails. Built as a Final Year Project for the BSc (Hons) Cyber Security programme at De Montfort University Dubai.
 
-A machine-learning based web tool that classifies a submitted email as
-either *phishing* or *legitimate*, reports a calibrated confidence score
-and surfaces the human-interpretable indicators that drove the decision.
+A live deployment is available at:
+**https://phishing-detection-tool-production.up.railway.app**
 
----
-
-## Overview
-
-The system combines 5,000 TF-IDF text features (1–2 word n-grams over the
-email body) with 20 handcrafted phishing indicators drawn from the cyber
-security literature (URL signals, header anomalies, content cues,
-structural metrics). The 5,020-dimensional feature vector is fed to a
-Logistic Regression classifier wrapped in `CalibratedClassifierCV`
-(sigmoid calibration, 5-fold cross-validation) and trained on a balanced
-corpus of 25,116 emails assembled from the MeAJOR Corpus and a publicly
-available Kaggle phishing-vs-legitimate dataset.
-
-The Phase 3 deployment adds two production-oriented behaviours:
-
-- a **sender-reputation allowlist override** that downgrades the verdict
-  to *legitimate* when the From-domain belongs to a known transactional
-  sender and no high-signal handcrafted indicator fires; and
-- a **hard-signal escalation rule** (the inverse) that upgrades the
-  verdict to *phishing* when a non-allowlisted sender triggers one of
-  the high-signal indicators (lookalike domain, IP-literal host, URL
-  shortener, suspicious TLD, brand-subdomain spoofing).
-
-Free webmail providers are deliberately excluded from the allowlist
-because Business Email Compromise attacks are commonly delivered from
-free webmail addresses impersonating executives.
+If you would rather run it on your own computer, the rest of this README walks you through the setup from scratch.
 
 ---
 
-## Repository layout
+## What you need before you start
 
-```
-Final year Project/
-|
-|-- Phase1_development/        Foundational parser, 24-feature extractor and
-|                              Random Forest baseline (synthetic data).
-|
-|-- Phase2_development/
-|   |-- 1_data_combined/       Source datasets used for training.
-|   |-- 2_training/            Production retraining and evaluation scripts.
-|   |-- 3_testing/             Quick test suite exercising the deployed model.
-|   |-- feature_extractor.py
-|   |-- feature_extractor_enhanced.py
-|   |-- ml_model.py
-|   `-- README.md
-|
-|-- Phase3_development/        Deployed web application.
-|   |-- app.py                 Flask routes, request handling, JSON API.
-|   |-- config.py              Production settings (paths, threshold, logging).
-|   |-- wsgi.py                WSGI entry point used by Gunicorn.
-|   |-- models/
-|   |   |-- detector.py        PhishingDetector class (load + predict).
-|   |   |-- *.joblib           Trained model artefacts.
-|   |   `-- config.json        Model metadata.
-|   |-- static/                CSS and JavaScript for the web UI.
-|   |-- templates/             Jinja2 templates (index, analyzer, errors).
-|   `-- requirements.txt
-|
-|-- Procfile                   Railway / Heroku-style web entry point.
-|-- requirements.txt           Top-level dependency list (Railway uses this).
-|-- runtime.txt                Pinned Python version (3.10.13).
-|-- mise.toml                  Build-tool settings for the Railway image.
-`-- README.md                  This file.
-```
+You need three things installed on your machine. If you already have them, jump straight to **Setup**.
+
+1. **Python 3.10 or newer**
+   Check by opening a terminal and running:
+   ```bash
+   python3 --version
+   ```
+   If the command is not found or the version is older than 3.10, download an installer from https://www.python.org/downloads/.
+
+2. **Git**
+   Check by running:
+   ```bash
+   git --version
+   ```
+   If it is missing, download it from https://git-scm.com/downloads.
+
+3. **Visual Studio Code** (recommended editor, but any will do)
+   Download from https://code.visualstudio.com/. After installing, also install the **Python extension** from the Extensions side panel — it gives you the run button, integrated terminal and auto-formatting.
 
 ---
 
-## Running the application locally
+## Setup (one-time, takes about five minutes)
 
-The project was developed and tested on macOS with Python 3.10. The
-commands below assume that pattern; Linux is equivalent.
+### Step 1 — clone the repository
+
+Open a terminal in the folder where you keep your projects and run:
 
 ```bash
-# 1. Create and activate a virtual environment (first time only)
+git clone https://github.com/dev-shams/phishing-detection-tool.git
+cd phishing-detection-tool
+```
+
+### Step 2 — open the project in VS Code
+
+From the same terminal:
+
+```bash
+code .
+```
+
+(or open VS Code first, then **File → Open Folder…** and select the freshly-cloned folder).
+
+### Step 3 — open the integrated terminal in VS Code
+
+Use the menu **Terminal → New Terminal** (shortcut: `Ctrl + ~` on Windows/Linux, `Cmd + ~` on macOS). All subsequent commands should be run in this terminal.
+
+### Step 4 — create a Python virtual environment
+
+A virtual environment keeps this project's dependencies isolated from the rest of your system:
+
+```bash
 python3 -m venv phishing_env
-source phishing_env/bin/activate
+```
 
-# 2. Install dependencies
+Activate it:
+
+| OS              | Command                                     |
+|-----------------|---------------------------------------------|
+| macOS / Linux   | `source phishing_env/bin/activate`          |
+| Windows (cmd)   | `phishing_env\Scripts\activate.bat`         |
+| Windows (PS)    | `phishing_env\Scripts\Activate.ps1`         |
+
+You should see `(phishing_env)` appear at the start of your terminal prompt.
+
+### Step 5 — install all dependencies
+
+```bash
 pip install -r requirements.txt
+```
 
-# 3. Start the Flask development server
+This installs Flask, scikit-learn, joblib, pandas, NumPy, gunicorn and a few smaller libraries. It takes about a minute on a normal internet connection.
+
+If pip says "command not found", try `python3 -m pip install -r requirements.txt` instead.
+
+---
+
+## Running the application
+
+With the virtual environment still activated:
+
+```bash
 cd Phase3_development
+python app.py
+OR
 python3 app.py
 ```
 
-The application listens on `http://127.0.0.1:5001` and exposes the
-following routes:
+The first time the app boots it loads the trained model into memory. You should see output ending with:
 
-| Route               | Purpose                                                |
-|---------------------|--------------------------------------------------------|
-| `GET /`             | Landing page with project overview and statistics      |
-| `GET /analyzer`     | Submission form (paste text or upload `.eml/.txt/.msg`)|
-| `POST /api/analyze` | JSON-returning REST endpoint for integration           |
-| `GET /api/status`   | Returns the detector readiness state                   |
+```
+* Running on http://127.0.0.1:5001
+* Running on http://192.168.x.x:5001
+Press CTRL+C to quit
+```
 
-For production deployment the entry point is `gunicorn wsgi:app`.
+Open your browser and visit **http://127.0.0.1:5001/**.
+
+### Using the web interface
+
+1. Click **Analyzer** in the navigation bar (or visit `/analyzer` directly).
+2. Either paste a raw email into the text area, or upload an email file (`.eml`, `.txt` or `.msg`).
+3. Click **Analyze Email**.
+4. The result page shows the verdict (`PHISHING` or `LEGITIMATE`), a calibrated confidence score, and a list of any threat indicators that fired.
+
+To stop the server, press `Ctrl + C` in the terminal.
 
 ---
 
-## Retraining the model
+## Project structure
 
-Retraining is fully reproducible from the bundled datasets:
-
-```bash
-cd Phase2_development/2_training
-python3 retrain_phase3_model.py
+```
+phishing-detection-tool/
+|
+|-- Phase1_development/        Initial baseline (parser + 24-feature extractor + RF)
+|
+|-- Phase2_development/
+|   |-- 1_data_combined/       Training datasets (CSV)
+|   |-- 2_training/            retrain_phase3_model.py, evaluate_phase3_model.py
+|   |-- 3_testing/             quick_test_suite.py
+|   `-- feature_extractor_enhanced.py
+|
+|-- Phase3_development/        Production web application
+|   |-- app.py                 Flask routes
+|   |-- config.py              Configuration (paths, decision threshold, logging)
+|   |-- wsgi.py                Production WSGI entry point
+|   |-- models/
+|   |   |-- detector.py        PhishingDetector class (load + predict)
+|   |   |-- *.joblib           Saved model artefacts
+|   |   `-- config.json        Model metadata
+|   |-- static/                CSS and JavaScript
+|   `-- templates/             HTML pages (index, analyzer, error pages)
+|
+|-- Procfile                   Production entry point (for Railway / Heroku)
+|-- requirements.txt           Python dependencies
+|-- runtime.txt                Python version pin (3.10.13)
+|-- mise.toml                  Railway build settings
+`-- README.md                  This file
 ```
 
-The script performs an 80/20 stratified split, fits a 5,000-feature
-TF-IDF vectoriser on the training portion, extracts the 20 handcrafted
-indicators, runs a 5-fold cross-validation comparison across five
-classifiers (Multinomial Naive Bayes, Decision Tree, Linear SVM, Random
-Forest, Logistic Regression), trains the chosen calibrated Logistic
-Regression model and writes the four joblib artefacts plus an updated
-`config.json` to `Phase3_development/models/`.
+---
 
-To re-evaluate the saved model on the held-out test set:
+## How the detection works
 
-```bash
-python3 evaluate_phase3_model.py
-```
+The classifier looks at every email through two complementary lenses:
 
-This prints aggregate metrics and writes `confusion_matrix.png` and
-`roc_pr_curves.png` to the same directory.
+- **5,000 TF-IDF features** — the 5,000 most class-distinguishing 1-to-2 word phrases learned automatically from the training corpus.
+- **20 handcrafted phishing indicators** — domain-expert features such as IP-literal hosts in URLs, URL shortener use, look-alike domain detection (paypa1, micros0ft, …), suspicious TLDs (`.tk`, `.xyz`, …), urgency keywords, credential-request phrases and structural metrics.
 
-To run the end-to-end test suite against the deployed `PhishingDetector`:
+These are concatenated into a 5,020-dimensional vector that is fed to a Logistic Regression classifier wrapped in scikit-learn's `CalibratedClassifierCV` (sigmoid calibration, 5-fold cross-validation).
 
-```bash
-cd ../3_testing
-python3 quick_test_suite.py
-```
+Two production safety nets sit on top of the model:
+
+- A **sender-reputation allowlist** of well-known transactional domains (GitHub, Amazon, Microsoft, etc.) downgrades the verdict to *legitimate* when no hard phishing signal fires. Free webmail providers are intentionally excluded so Business Email Compromise from a Gmail address is still caught.
+- A **hard-signal escalation rule** upgrades the verdict to *phishing* when a non-allowlisted sender triggers any high-signal indicator (lookalike domain, brand-subdomain spoofing, IP-literal URL, URL shortener, suspicious TLD).
+
+The decision threshold is set to `0.35` in `Phase3_development/config.py`.
 
 ---
 
 ## Reported performance
 
-On a stratified 5,024-email held-out test set drawn from the same
-combined corpus, the production model achieves:
+Measured on a stratified 5,024-email held-out test set:
 
 | Metric    | Value   |
 |-----------|---------|
@@ -155,54 +182,57 @@ combined corpus, the production model achieves:
 | F1-score  | 98.77 % |
 | ROC-AUC   | 99.77 % |
 
-Mean inference latency is approximately 2–3 milliseconds per email on a
-laptop-class CPU. The decision threshold is set to 0.35 to capture
-business-email-compromise and brand-impersonation messages whose
-calibrated probability falls in the 0.35–0.50 borderline zone; the
-allowlist override and hard-signal escalation rule in `detector.py`
-handle the false-positive trade-off this lowered threshold would
-otherwise introduce.
+Mean inference latency is approximately 2–3 ms per email on a laptop-class CPU.
 
 ---
 
-## Limitations
+## Re-training and re-evaluating the model
 
-- The headline metrics above are an in-domain estimate. Real-world
-  accuracy will differ; temporal cross-validation is identified as
-  future work in the project report.
-- Attachment-based malware delivery (e.g. a ZIP or PDF payload with
-  no URLs in the body) is out of scope for a content-only classifier
-  and is documented as a known gap.
-- The TF-IDF block is English-dominant; non-English emails may degrade
-  in accuracy and will tend to fall through the out-of-distribution
-  safety path in `detector.py`.
+Everything is reproducible from the bundled datasets.
 
----
+```bash
+cd Phase2_development/2_training
+python3 retrain_phase3_model.py        # writes new joblib files to Phase3_development/models/
+python3 evaluate_phase3_model.py       # writes confusion_matrix.png and roc_pr_curves.png
+```
 
-## Privacy
+To run the end-to-end test suite:
 
-All analysis is performed in memory. Submitted email text is never
-written to durable storage and uploaded files are deleted after parsing.
-Logs do not contain message bodies.
+```bash
+cd ../3_testing
+python3 quick_test_suite.py
+```
 
 ---
 
-## Deployment
+## Troubleshooting
 
-The project deploys to Railway via the bundled `Procfile`. The build
-pipeline:
+**`python3: command not found`**
+Install Python 3.10+ from https://www.python.org/downloads/ and reopen your terminal.
 
-1. Installs the Python version pinned in `runtime.txt`
-   (`python-3.10.13`) using `mise`. The `mise.toml` file disables
-   GitHub artifact attestation verification, which is required because
-   no attestations are published for that specific patch release.
-2. Runs `pip install -r requirements.txt` at the repository root.
-3. Boots the production server with
-   `gunicorn app:app --workers 2 --threads 2 --worker-class gthread`
-   from inside `Phase3_development/`.
+**`pip: command not found`**
+Use `python3 -m pip install -r requirements.txt` instead.
+
+**`ModuleNotFoundError: No module named 'flask'`**
+The virtual environment is not activated. Re-run the activation command from Step 4.
+
+**`Port 5001 is already in use`**
+Another process is using the port. Either close the other process or change the port in `Phase3_development/config.py` (look for `PORT`).
+
+**The browser shows "This site can't be reached"**
+Make sure the Flask server is still running in the terminal. If you closed the terminal, the server stopped — restart it with `python3 app.py`.
+
+**The model is slow on the very first request**
+This is normal. The model loads into memory on the first request after startup (≈1 second) and stays cached afterwards.
 
 ---
 
-## Repository
+## Licence and acknowledgements
 
-Source code: `https://github.com/dev-shams/phishing-detection-tool`
+This project was developed as part of the BSc (Hons) Cyber Security Final Year Project at De Montfort University Dubai, academic year 2025/26.
+
+Training data sources:
+- **MeAJOR Corpus** — publicly available phishing-email corpus.
+- **Kaggle phishing-vs-legitimate 10k dataset** — https://www.kaggle.com/.
+
+The project is released under the MIT licence (see `LICENSE` if present in the repository, otherwise treat as MIT for non-commercial academic re-use).
