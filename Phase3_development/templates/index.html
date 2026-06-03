@@ -36,7 +36,7 @@
                 <div class="feature-card">
                     <div class="feature-icon">🔍</div>
                     <h3>Advanced Detection</h3>
-                    <p>Machine learning model trained on 82,479+ real emails</p>
+                    <p>Calibrated machine learning model trained on 25,116 real emails</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">⚡</div>
@@ -64,27 +64,27 @@
                 <div class="about-text">
                     <h3>How It Works</h3>
                     <p>
-                        This phishing detection tool uses a <strong>Random Forest Classifier</strong> trained on real-world email data from the Kaggle dataset. The model analyzes 27 distinct features including:
+                        This phishing detection tool uses a <strong>Logistic Regression Classifier</strong> wrapped in CalibratedClassifierCV (sigmoid, 5-fold CV), trained on a hybrid feature space of <strong>5,020 features</strong> (5,000 TF-IDF terms over the email body plus 20 handcrafted phishing indicators). The model analyses:
                     </p>
                     <ul>
-                        <li><strong>URL Analysis</strong> - Detects suspicious links and shortened URLs</li>
-                        <li><strong>Text Features</strong> - Identifies urgency keywords and phishing language</li>
-                        <li><strong>Authentication</strong> - Checks email headers (DKIM, SPF, DMARC)</li>
-                        <li><strong>Domain Analysis</strong> - Verifies sender domains and identifies spoofing</li>
+                        <li><strong>URL Analysis</strong> - IP-literal hosts, URL shorteners, suspicious TLDs, brand-subdomain spoofing</li>
+                        <li><strong>Text Features</strong> - TF-IDF over email body, urgency and credential-request keywords</li>
+                        <li><strong>Authentication</strong> - Header anomalies, reply-to mismatch, free-webmail sender flag</li>
+                        <li><strong>Domain Analysis</strong> - Lookalike detection, sender-reputation allowlist + hard-signal escalation</li>
                     </ul>
                 </div>
                 <div class="about-stats">
                     <div class="stat">
-                        <div class="stat-number">82,479+</div>
+                        <div class="stat-number">25,116</div>
                         <div class="stat-label">Training Emails</div>
                     </div>
                     <div class="stat">
-                        <div class="stat-number">27</div>
+                        <div class="stat-number">5,020</div>
                         <div class="stat-label">Features Analyzed</div>
                     </div>
                     <div class="stat">
-                        <div class="stat-number">90%+</div>
-                        <div class="stat-label">Accuracy Rate</div>
+                        <div class="stat-number">98.8%</div>
+                        <div class="stat-label">Test Accuracy</div>
                     </div>
                     <div class="stat">
                         <div class="stat-number">Real-time</div>
@@ -105,8 +105,8 @@
 
     <footer>
         <div class="container">
-            <p>&copy; 2024 Phishing Email Detection Tool - Phase 3 Development</p>
-            <p>ML Model: Random Forest Classifier | Dataset: Kaggle Phishing Emails</p>
+            <p>&copy; Phishing Email Detection Tool - Final Year Project</p>
+            <p>ML Model: Logistic Regression Classifier | Hybrid TF-IDF + Handcrafted Features</p>
         </div>
     </footer>
 

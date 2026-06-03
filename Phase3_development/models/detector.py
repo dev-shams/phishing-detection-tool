@@ -42,6 +42,103 @@ URGENCY_KEYWORDS = [
 PHISHING_DOMAINS = ['bit.ly', 'tinyurl', 'goo.gl', 't.co', 'ow.ly', 'tiny.cc', 'is.gd', 'cli.gs']
 SUSPICIOUS_TLDS = ['.xyz', '.tk', '.ml', '.ga', '.cf', '.gq', '.ru', '.cn']
 
+# Sender-reputation allowlist (Section 8.6 — future-work item now implemented).
+# If From-domain matches an allowlisted domain AND no real phishing indicators fire
+# (no IP-literal URL, no shortener, no lookalike domain, no suspicious TLD),
+# the verdict is downgraded to LEGITIMATE. This addresses the structural false-
+# positive problem of a pure-content classifier flagging legitimate notifications
+# that share vocabulary with phishing (account, password, expire, log in, etc.).
+# IMPORTANT: free webmail providers (gmail.com, hotmail.com, outlook.com,
+# live.com, icloud.com, yahoo.com, etc.) are deliberately NOT on this list,
+# because Business Email Compromise (BEC) attacks are routinely sent from
+# free webmail addresses impersonating executives. Trusting those domains
+# wholesale would defeat BEC detection.
+ALLOWLIST_DOMAINS = [
+    # Source code platforms
+    'github.com', 'gitlab.com', 'bitbucket.org',
+    # Corporate Google / Microsoft / Apple (NOT consumer webmail)
+    'google.com', 'youtube.com',
+    'microsoft.com', 'office.com',
+    'apple.com',
+    # Major retailers and payments
+    'amazon.com', 'amazon.co.uk', 'amazon.ae', 'aws.amazon.com',
+    'paypal.com', 'stripe.com', 'square.com',
+    # Social and communication SaaS
+    'linkedin.com', 'twitter.com', 'x.com', 'facebook.com', 'instagram.com',
+    'slack.com', 'zoom.us', 'notion.so', 'asana.com', 'trello.com',
+    # Engineering / monitoring SaaS
+    'datadoghq.com', 'sentry.io', 'pagerduty.com', 'newrelic.com',
+    'atlassian.com', 'jira.com', 'confluence.com',
+    'docker.com', 'npmjs.com', 'pypi.org', 'cloudflare.com',
+    # Media and learning
+    'medium.com', 'substack.com', 'coursera.org', 'edx.org', 'udemy.com',
+    # Banking (UAE/UK examples)
+    'hsbc.co.uk', 'hsbc.com', 'barclays.co.uk', 'natwest.com', 'lloydsbank.com',
+    # University
+    'dmu.ac.uk', 'dmu.ae',
+    # Misc deployment-specific
+    'techflow.io',
+]
+
+# Well-known brand names that, when used as a SUBDOMAIN of a foreign
+# registrable domain, indicate phishing. Example:
+#   login.microsoft.verify-user-session.com  → "microsoft" is a subdomain of
+#   "verify-user-session.com", not the actual host. This is the canonical
+#   subdomain-spoofing trick used by phishing kits.
+SPOOF_BRAND_NAMES = [
+    'microsoft', 'office365', 'outlook', 'live', 'msn',
+    'google', 'gmail', 'youtube',
+    'apple', 'icloud',
+    'amazon', 'aws',
+    'paypal', 'stripe',
+    'github', 'gitlab',
+    'facebook', 'instagram', 'whatsapp', 'linkedin',
+    'dropbox', 'sharepoint',
+    'netflix', 'spotify',
+    'hsbc', 'barclays', 'natwest', 'lloyds',
+]
+
+
+def _has_brand_subdomain_spoofing(text: str) -> bool:
+    """True if any URL in the text has a well-known brand name appearing as a
+    subdomain segment but NOT as the registrable second-level domain."""
+    urls = re.findall(r'http[s]?://([^/\s]+)', text)
+    for host in urls:
+        host = host.lower().strip()
+        # Strip port if any
+        host = host.split(':')[0]
+        parts = host.split('.')
+        if len(parts) < 3:
+            continue  # No subdomains, nothing to spoof
+        registrable = parts[-2]  # crude SLD — good enough for this check
+        for brand in SPOOF_BRAND_NAMES:
+            # Brand appears somewhere in the subdomain stack
+            if any(brand == p or brand in p for p in parts[:-2]):
+                # And brand is NOT the registrable SLD
+                if brand != registrable and brand not in registrable:
+                    return True
+    return False
+
+
+def _extract_sender_domain(email_data) -> str:
+    """Pull the From-domain out of email_data, tolerating display-name wrappers."""
+    sender = str(email_data.get('sender', '') or '')
+    # Handle "Name <addr@domain>" form
+    m = re.search(r'<([^>]+)>', sender)
+    if m:
+        sender = m.group(1)
+    if '@' in sender:
+        sender = sender.rsplit('@', 1)[-1]
+    return sender.lower().strip().strip('>').strip()
+
+
+def _domain_in_allowlist(domain: str) -> bool:
+    """True if domain matches or is a subdomain of any allowlisted domain."""
+    if not domain:
+        return False
+    return any(domain == d or domain.endswith('.' + d) for d in ALLOWLIST_DOMAINS)
+
+
 # Google Drive direct download links (Updated May 29 - Enhanced model with 5020 features)
 GDRIVE_MODEL_LINK = "https://drive.google.com/uc?export=download&id=1IvuF3zMlxF6rG09D7w81qF-W8QUaP6Oy"
 GDRIVE_SCALER_LINK = "https://drive.google.com/uc?export=download&id=1Ezd3k5stwlfrhxUZj-irT14i8vUva4Xa"
@@ -539,6 +636,87 @@ class PhishingDetector:
             logger.debug(f"Decision: {'PHISHING' if is_phishing else 'LEGITIMATE'} (threshold={self.threshold}, prob={phishing_probability:.4f})")
 
             # ============================================================
+            # STEP 6b: Sender-reputation Allowlist Override
+            # ============================================================
+            # Real-world transactional senders (GitHub, Amazon, banking, SaaS)
+            # use the same vocabulary as the phishing emails that impersonate
+            # them. When the From-domain is in the allowlist AND none of the
+            # high-signal handcrafted indicators fire, downgrade the verdict.
+            # Indicator indices (0-based, same as Step 6's smart-check):
+            #   1  = suspicious_url      (IP-literal / bit.ly / tinyurl in body)
+            #   11 = lookalike_domain    (paypa1, micros0ft, ...)
+            #   12 = numeric_in_domain   (digits in sender domain)
+            #   13 = suspicious_tld_hdr  (.tk/.xyz/... in sender)
+            #   14 = ip_url_count        (URL with IP-literal host)
+            #   15 = shortener_url_count (bit.ly/tinyurl in URL)
+            #   17 = deep_subdomain_cnt  (a.b.c.d.example.com)
+            #   18 = suspicious_tld_url  (.tk/.xyz/... in URL)
+            # We DO NOT use 16 (avg_url_length) or 19 (at_in_url) here because
+            # they fire on innocent URLs and would defeat the override.
+            allowlist_override_applied = False
+            try:
+                sender_domain = _extract_sender_domain(email_data)
+                if is_phishing and _domain_in_allowlist(sender_domain):
+                    hard_signals = [1, 11, 12, 13, 14, 15, 17, 18]
+                    hc_row = handcrafted_values[0]
+                    fires = [i for i in hard_signals if i < len(hc_row) and hc_row[i] > 0]
+                    if not fires:
+                        logger.info(
+                            f"Sender allowlist override: '{sender_domain}' is on the "
+                            f"allowlist and no hard phishing signals fired; "
+                            f"downgrading from PHISHING ({phishing_probability:.2f}) "
+                            f"to LEGITIMATE."
+                        )
+                        # Cap the reported probability at the threshold minus a margin
+                        # so the UI reflects the downgrade.
+                        phishing_probability = min(phishing_probability, 0.20)
+                        is_phishing = False
+                        allowlist_override_applied = True
+            except Exception as e:
+                logger.warning(f"Allowlist override check failed safely: {e}")
+
+            # ============================================================
+            # STEP 6c: Hard-signal Escalation (inverse of allowlist override)
+            # ============================================================
+            # If the model under-predicts but at least one hard phishing signal
+            # fires AND the sender is NOT on the allowlist, escalate the verdict
+            # to PHISHING. This addresses the borderline-zone failures where the
+            # ML probability sits between 0.20 and the decision threshold but a
+            # cyber-security indicator clearly identifies the email as malicious
+            # (lookalike domain, IP-literal URL, shortener, suspicious TLD, ...).
+            hard_signal_escalation = False
+            try:
+                if not is_phishing and not allowlist_override_applied:
+                    sender_domain = _extract_sender_domain(email_data)
+                    if not _domain_in_allowlist(sender_domain):
+                        hard_signals = [1, 11, 12, 13, 14, 15, 17, 18]
+                        hc_row = handcrafted_values[0]
+                        fires = [i for i in hard_signals if i < len(hc_row) and hc_row[i] > 0]
+                        # Brand-as-subdomain spoofing is also a hard signal
+                        # (independent of the handcrafted feature vector)
+                        brand_spoof = _has_brand_subdomain_spoofing(email_body) or \
+                                       _has_brand_subdomain_spoofing(str(email_data.get('subject', '')))
+                        if brand_spoof:
+                            fires.append('brand_subdomain_spoof')
+                        # Escalate if hard signals fire AND the model is at
+                        # least 0.10 (not a clearly-clean email). A brand-spoof
+                        # signal is so specific to phishing that we lower the
+                        # floor when it is the trigger.
+                        floor = 0.10 if brand_spoof else 0.20
+                        if fires and phishing_probability >= floor:
+                            logger.info(
+                                f"Hard-signal escalation: non-allowlisted sender "
+                                f"'{sender_domain}' triggered indicators {fires}; "
+                                f"escalating from LEGITIMATE ({phishing_probability:.2f}) "
+                                f"to PHISHING."
+                            )
+                            phishing_probability = max(phishing_probability, 0.70)
+                            is_phishing = True
+                            hard_signal_escalation = True
+            except Exception as e:
+                logger.warning(f"Hard-signal escalation check failed safely: {e}")
+
+            # ============================================================
             # STEP 7: Determine Risk Level (aligned with classification)
             # ============================================================
             try:
@@ -593,7 +771,9 @@ class PhishingDetector:
                 'risk_level': risk_level,
                 'is_phishing': is_phishing,
                 'threat_indicators': threat_indicators,
-                'feature_count': combined_features.shape[1]  # Should be 5020
+                'feature_count': combined_features.shape[1],  # Should be 5020
+                'allowlist_override': allowlist_override_applied,
+                'hard_signal_escalation': hard_signal_escalation,
             }
 
             logger.info(f"Prediction: {result['classification']} ({result['confidence_phishing']}%) - Risk: {risk_level}")

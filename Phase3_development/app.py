@@ -92,9 +92,9 @@ def analyzer():
 
 @app.route('/results')
 def results():
-    """Results page (accessed after analysis)"""
-    result = session.get('last_result', None)
-    return render_template('results.html', result=result)
+    """Results are shown inline on the analyzer page. Redirect for any deep links."""
+    from flask import redirect, url_for
+    return redirect(url_for('analyzer'))
 
 @app.route('/api/analyze', methods=['POST'])
 def api_analyze():

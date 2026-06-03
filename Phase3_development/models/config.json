@@ -2,6 +2,18 @@
   "best_model": "Logistic Regression (Calibrated)",
   "calibration_method": "sigmoid",
   "cv_folds": 5,
-  "test_accuracy": 1.0,
-  "note": "Uses CalibratedClassifierCV to fix probability overconfidence"
+  "training_size": 20092,
+  "test_size": 5024,
+  "tfidf_features": 5000,
+  "handcrafted_features": 20,
+  "total_features": 5020,
+  "decision_threshold": 0.35,
+  "decision_threshold_note": "Deployment uses 0.35 (lowered from the calibrated 0.5) to catch BEC and brand-impersonation phishing in the borderline 0.35-0.50 zone; complemented by a sender-reputation allowlist override and a hard-signal escalation rule in detector.py.",
+  "test_accuracy": 0.9876592356687898,
+  "test_precision": 0.985725614591594,
+  "test_recall": 0.9896496815286624,
+  "test_f1": 0.9876837504966229,
+  "test_roc_auc": 0.9976688329141141,
+  "trained_on": "MeAJOR Corpus + Kaggle 10k (balanced, deduplicated)",
+  "note": "TF-IDF fit on real email bodies (5000 max features, 1-2 ngrams), calibrated via CalibratedClassifierCV (sigmoid, cv=5)"
 }
