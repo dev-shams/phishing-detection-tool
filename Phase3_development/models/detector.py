@@ -1,10 +1,19 @@
 """
-Phase 3: Phishing Detection Model Wrapper
-Enhanced version using TF-IDF (5000 features) + Handcrafted phishing indicators (20 features)
-Based on successful techniques from previous project analysis
+Phase 3: Phishing Detection Model Wrapper.
 
-Total feature space: 5020 features
-Model: Random Forest trained on modern datasets (MeAJOR Corpus + Kaggle 2026)
+Hybrid feature space (5,020 dimensions):
+    - 5,000 TF-IDF features over the email body (1-2 word n-grams)
+    - 20 handcrafted phishing indicators (URL, header, content, structural)
+
+Production model: Logistic Regression wrapped in CalibratedClassifierCV
+(sigmoid calibration, 5-fold CV), trained on the MeAJOR Corpus combined
+with the Kaggle 10k phishing-vs-legitimate dataset (25,116 balanced
+emails after deduplication).
+
+Also implements:
+    - Sender-reputation allowlist override (downgrade)
+    - Hard-signal escalation (upgrade)
+    - Brand-subdomain-spoofing detector
 """
 
 import sys
@@ -150,9 +159,9 @@ class PhishingDetector:
     Enhanced phishing detector using:
     - TF-IDF vectorization (5000 features) on email text
     - Handcrafted phishing-specific features (20 features)
-    - Random Forest classifier trained on 9998 modern emails
+    - Calibrated Logistic Regression trained on 25,116 balanced emails
 
-    Total feature space: 5020 features
+    Total feature space: 5,020 dimensions
     """
 
     def __init__(self, model_path, scaler_path, feature_extractor_path,
@@ -206,7 +215,7 @@ class PhishingDetector:
             dest_path: Local path to save the file
         """
         try:
-            logger.info(f"Downloading from Google Drive to {dest_path}...")
+            logger.info(f"Downloading from Google Drive to {Path(dest_path).name}...")
 
             # Create directory if it doesn't exist
             dest_path.parent.mkdir(parents=True, exist_ok=True)
@@ -225,7 +234,7 @@ class PhishingDetector:
                 )
 
                 if output and Path(output).exists():
-                    logger.info(f"✓ Successfully downloaded to {dest_path}")
+                    logger.info(f"✓ Successfully downloaded to {Path(dest_path).name}")
                     return True
                 else:
                     logger.error("gdown download failed or file not created")
@@ -247,45 +256,45 @@ class PhishingDetector:
         """
         # Check if model file exists
         if not self.model_path.exists():
-            logger.warning(f"Model file not found: {self.model_path}")
+            logger.warning(f"Model file not found: {Path(self.model_path).name}")
             logger.info("Attempting to download from Google Drive...")
             if not self._download_from_gdrive(GDRIVE_MODEL_LINK, self.model_path):
                 logger.error("Failed to download model file")
                 raise RuntimeError("Could not obtain model file from local storage or Google Drive")
         else:
-            logger.info(f"✓ Model file found: {self.model_path}")
+            logger.info(f"✓ Model file found: {Path(self.model_path).name}")
 
         # Check if scaler file exists
         if not self.scaler_path.exists():
-            logger.warning(f"Scaler file not found: {self.scaler_path}")
+            logger.warning(f"Scaler file not found: {Path(self.scaler_path).name}")
             logger.info("Attempting to download from Google Drive...")
             if not self._download_from_gdrive(GDRIVE_SCALER_LINK, self.scaler_path):
                 logger.error("Failed to download scaler file")
                 raise RuntimeError("Could not obtain scaler file from local storage or Google Drive")
         else:
-            logger.info(f"✓ Scaler file found: {self.scaler_path}")
+            logger.info(f"✓ Scaler file found: {Path(self.scaler_path).name}")
 
         # Check if tfidf vectorizer file exists
         if not self.tfidf_vectorizer_path.exists():
-            logger.warning(f"TF-IDF vectorizer file not found: {self.tfidf_vectorizer_path}")
+            logger.warning(f"TF-IDF vectorizer file not found: {Path(self.tfidf_vectorizer_path).name}")
             logger.info("Attempting to download from Google Drive...")
             if not self._download_from_gdrive(GDRIVE_TFIDF_VECTORIZER_LINK, self.tfidf_vectorizer_path):
                 logger.error("Failed to download TF-IDF vectorizer file")
                 # Don't raise - system can work with zeros
                 logger.warning("Will continue without TF-IDF vectorizer")
         else:
-            logger.info(f"✓ TF-IDF vectorizer file found: {self.tfidf_vectorizer_path}")
+            logger.info(f"✓ TF-IDF vectorizer file found: {Path(self.tfidf_vectorizer_path).name}")
 
         # Check if handcrafted scaler file exists
         if not self.handcrafted_scaler_path.exists():
-            logger.warning(f"Handcrafted scaler file not found: {self.handcrafted_scaler_path}")
+            logger.warning(f"Handcrafted scaler file not found: {Path(self.handcrafted_scaler_path).name}")
             logger.info("Attempting to download from Google Drive...")
             if not self._download_from_gdrive(GDRIVE_HANDCRAFTED_SCALER_LINK, self.handcrafted_scaler_path):
                 logger.error("Failed to download handcrafted scaler file")
                 # Don't raise - system can work with fallback scaler
                 logger.warning("Will continue with fallback MinMaxScaler")
         else:
-            logger.info(f"✓ Handcrafted scaler file found: {self.handcrafted_scaler_path}")
+            logger.info(f"✓ Handcrafted scaler file found: {Path(self.handcrafted_scaler_path).name}")
 
     def _load_onnx_model(self):
         """Load the ONNX model (version-agnostic, works with any sklearn version)"""
@@ -299,7 +308,7 @@ class PhishingDetector:
                 logger.info(f"✓ ONNX model loaded (version-agnostic): {self.onnx_model_path.name}")
                 return True
             else:
-                logger.debug(f"ONNX model not found at {self.onnx_model_path}")
+                logger.debug(f"ONNX model not found at {Path(self.onnx_model_path).name}")
                 return False
         except Exception as e:
             logger.warning(f"Failed to load ONNX model: {str(e)}, will use sklearn model")
@@ -313,17 +322,17 @@ class PhishingDetector:
             if cloudpkl_path.exists():
                 with open(cloudpkl_path, 'rb') as f:
                     self.model = cloudpickle.load(f)
-                logger.info(f"✓ Model loaded (cloudpickle): {cloudpkl_path}")
+                logger.info(f"✓ Model loaded (cloudpickle): {Path(cloudpkl_path).name}")
             # Fall back to regular pickle
             elif self.model_path.with_suffix('.pkl').exists():
                 pkl_path = self.model_path.with_suffix('.pkl')
                 with open(pkl_path, 'rb') as f:
                     self.model = pickle.load(f)
-                logger.info(f"✓ Model loaded (pickle): {pkl_path}")
+                logger.info(f"✓ Model loaded (pickle): {Path(pkl_path).name}")
             # Fall back to joblib
             elif self.model_path.exists():
                 self.model = joblib.load(self.model_path)
-                logger.info(f"✓ Model loaded (joblib): {self.model_path}")
+                logger.info(f"✓ Model loaded (joblib): {Path(self.model_path).name}")
             else:
                 raise FileNotFoundError(f"Model file not found")
         except Exception as e:
@@ -338,17 +347,17 @@ class PhishingDetector:
             if cloudpkl_path.exists():
                 with open(cloudpkl_path, 'rb') as f:
                     self.scaler = cloudpickle.load(f)
-                logger.info(f"✓ Scaler loaded (cloudpickle): {cloudpkl_path}")
+                logger.info(f"✓ Scaler loaded (cloudpickle): {Path(cloudpkl_path).name}")
             # Fall back to pickle
             elif self.scaler_path.with_suffix('.pkl').exists():
                 pkl_path = self.scaler_path.with_suffix('.pkl')
                 with open(pkl_path, 'rb') as f:
                     self.scaler = pickle.load(f)
-                logger.info(f"✓ Scaler loaded (pickle): {pkl_path}")
+                logger.info(f"✓ Scaler loaded (pickle): {Path(pkl_path).name}")
             # Fall back to joblib
             elif self.scaler_path.exists():
                 self.scaler = joblib.load(self.scaler_path)
-                logger.info(f"✓ Scaler loaded (joblib): {self.scaler_path}")
+                logger.info(f"✓ Scaler loaded (joblib): {Path(self.scaler_path).name}")
             else:
                 raise FileNotFoundError(f"Scaler file not found")
         except Exception as e:
@@ -389,17 +398,17 @@ class PhishingDetector:
             if cloudpkl_path.exists():
                 with open(cloudpkl_path, 'rb') as f:
                     self.handcrafted_scaler = cloudpickle.load(f)
-                logger.info(f"✓ Handcrafted scaler loaded (cloudpickle): {cloudpkl_path}")
+                logger.info(f"✓ Handcrafted scaler loaded (cloudpickle): {Path(cloudpkl_path).name}")
             # Fall back to pickle
             elif self.handcrafted_scaler_path.with_suffix('.pkl').exists():
                 pkl_path = self.handcrafted_scaler_path.with_suffix('.pkl')
                 with open(pkl_path, 'rb') as f:
                     self.handcrafted_scaler = pickle.load(f)
-                logger.info(f"✓ Handcrafted scaler loaded (pickle): {pkl_path}")
+                logger.info(f"✓ Handcrafted scaler loaded (pickle): {Path(pkl_path).name}")
             # Fall back to joblib
             elif self.handcrafted_scaler_path.exists():
                 self.handcrafted_scaler = joblib.load(self.handcrafted_scaler_path)
-                logger.info(f"✓ Handcrafted scaler loaded (joblib): {self.handcrafted_scaler_path}")
+                logger.info(f"✓ Handcrafted scaler loaded (joblib): {Path(self.handcrafted_scaler_path).name}")
             else:
                 logger.warning(f"Handcrafted scaler not found")
                 return

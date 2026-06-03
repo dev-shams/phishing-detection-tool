@@ -81,7 +81,7 @@ Phase3_development/
 ### Step 1: Install Dependencies
 
 ```bash
-cd ~/Documents/Claude/Projects/Final\ year\ Project/Phase3_development
+cd Phase3_development
 pip install -r requirements.txt
 ```
 

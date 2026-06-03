@@ -74,7 +74,7 @@ def initialize_detector():
                 threshold=DECISION_THRESHOLD
             )
             logger.info("✓ Enhanced phishing detector initialized")
-            logger.info(f"  - Model: phishing_model_enhanced.joblib (100% accuracy)")
+            logger.info(f"  - Model: phishing_model_enhanced.joblib (98.77% test accuracy)")
             logger.info(f"  - Features: 5020 (5000 TF-IDF + 20 handcrafted)")
             logger.info(f"  - Decision Threshold: {DECISION_THRESHOLD}")
         except Exception as e:
@@ -251,7 +251,7 @@ def api_info():
         'app_name': APP_NAME,
         'version': APP_VERSION,
         'description': 'Enhanced Phishing Email Detection using TF-IDF + Handcrafted Features',
-        'model_type': 'Random Forest Classifier',
+        'model_type': 'Logistic Regression (calibrated with CalibratedClassifierCV, sigmoid)',
         'features': {
             'tfidf': 5000,
             'handcrafted_phishing_indicators': 20,

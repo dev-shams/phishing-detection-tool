@@ -70,7 +70,7 @@ pip install -r requirements.txt
 Execute these commands in order:
 
 ```bash
-cd ~/Documents/Claude/Projects/Final\ year\ Project/Phase2_development
+cd Phase2_development
 
 # Step 1: Download real data from Kaggle (5-10 min)
 python 1_data/download_dataset.py
