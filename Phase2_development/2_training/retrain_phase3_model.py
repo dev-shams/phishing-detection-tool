@@ -3,7 +3,7 @@
 Phase 3 Model — PROPER Retraining Script
 =========================================
 Trains a real 5,020-dimensional Logistic Regression model (5,000 TF-IDF + 20
-handcrafted features) on the MeAJOR Corpus + Kaggle 10k dataset, with sigmoid
+handcrafted features) on the naser_phishing_email_dataset.csv + Kaggle 10k dataset, with sigmoid
 probability calibration via 5-fold cross-validation.
 
 This script replaces the saved artefacts in Phase3_development/models/ so that
@@ -127,18 +127,18 @@ def extract_handcrafted_20(text: str) -> list:
 print("\n[1/7] Loading datasets ...")
 
 frames = []
-# MeAJOR Corpus
+# naser_phishing_email_dataset.csv
 try:
-    m = pd.read_csv(DATA_DIR / "meajor_corpus.csv", on_bad_lines="skip")
+    m = pd.read_csv(DATA_DIR / "naser_phishing_email_dataset.csv", on_bad_lines="skip")
     m = m.dropna(subset=["Email Text", "Email Type"])
     m["text"] = m["Email Text"].astype(str)
     m["label"] = m["Email Type"].map({"Phishing Email": 1, "Safe Email": 0})
     m = m.dropna(subset=["label"])
     m["label"] = m["label"].astype(int)
     frames.append(m[["text", "label"]])
-    print(f"  MeAJOR Corpus: {len(m):,} rows")
+    print(f" naser_phishing_email_dataset.csv: {len(m):,} rows")
 except FileNotFoundError:
-    print("  meajor_corpus.csv not found — skipping")
+    print("  naser_phishing_email_dataset.csv not found — skipping")
 
 # Kaggle 10k
 try:
@@ -293,18 +293,18 @@ print(classification_report(y_test, y_pred, target_names=["Legitimate", "Phishin
 # -----------------------------------------------------------------------------
 # Save artefacts — drop-in replacement for detector.py
 # -----------------------------------------------------------------------------
-print("\nSaving artefacts ...")
+print("\nSaving artefacts to Phase3_development/models/ ...")
 joblib.dump(final, MODELS_DIR / "phishing_model_enhanced.joblib")
-print(f"  ✓ {MODELS_DIR/'phishing_model_enhanced.joblib'}")
+print("  ✓ phishing_model_enhanced.joblib")
 joblib.dump(tfidf, MODELS_DIR / "tfidf_vectorizer_enhanced.joblib")
-print(f"  ✓ {MODELS_DIR/'tfidf_vectorizer_enhanced.joblib'}")
+print("  ✓ tfidf_vectorizer_enhanced.joblib")
 joblib.dump(scaler, MODELS_DIR / "scaler_enhanced.joblib")
-print(f"  ✓ {MODELS_DIR/'scaler_enhanced.joblib'}")
+print("  ✓ scaler_enhanced.joblib")
 # Identity scaler kept for API parity with detector.py interface
 from sklearn.preprocessing import FunctionTransformer
 identity = FunctionTransformer(validate=False)
 joblib.dump(identity, MODELS_DIR / "handcrafted_scaler_enhanced.joblib")
-print(f"  ✓ {MODELS_DIR/'handcrafted_scaler_enhanced.joblib'}  (identity passthrough)")
+print("  ✓ handcrafted_scaler_enhanced.joblib  (identity passthrough)")
 
 config = {
     "best_model": "Logistic Regression (Calibrated)",
@@ -321,15 +321,10 @@ config = {
     "test_recall": float(rec),
     "test_f1": float(f1),
     "test_roc_auc": float(auc),
-    "trained_on": "MeAJOR Corpus + Kaggle 10k (balanced, deduplicated)",
+    "trained_on": "naser_phishing_email_dataset.csv + Kaggle 10k (balanced, deduplicated)",
     "note": "TF-IDF fit on real email bodies (5000 max features, 1-2 ngrams), "
             "calibrated via CalibratedClassifierCV (sigmoid, cv=5)",
 }
 with open(MODELS_DIR / "config.json", "w") as f:
     json.dump(config, f, indent=2)
-print(f"  ✓ {MODELS_DIR/'config.json'}")
-
-print("\n" + "=" * 72)
-print("DONE — re-run evaluate_phase3_model.py and quick_test_suite.py")
-print("       and re-screenshot for the report")
-print("=" * 72)
+print("  ✓ config.json")

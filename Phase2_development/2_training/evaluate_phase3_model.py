@@ -57,7 +57,7 @@ from sklearn.model_selection import train_test_split as _tts
 
 frames = []
 try:
-    m = pd.read_csv(DATA_DIR / "meajor_corpus.csv", on_bad_lines="skip")
+    m = pd.read_csv(DATA_DIR / "naser_phishing_email_dataset.csv", on_bad_lines="skip")
     m = m.dropna(subset=["Email Text", "Email Type"])
     m["text"] = m["Email Text"].astype(str)
     m["label"] = m["Email Type"].map({"Phishing Email": 1, "Safe Email": 0})
@@ -148,7 +148,7 @@ ConfusionMatrixDisplay(cm, display_labels=["Legitimate", "Phishing"]).plot(
 ax.set_title("Phase 3 Model — Confusion Matrix")
 plt.tight_layout()
 plt.savefig(out / "confusion_matrix.png", dpi=150, bbox_inches="tight")
-print(f"  -> {out/'confusion_matrix.png'}")
+print("  -> confusion_matrix.png  (saved in this folder)")
 
 fig, axes = plt.subplots(1, 2, figsize=(12, 5))
 RocCurveDisplay.from_predictions(labels, y_proba, ax=axes[0])
@@ -157,10 +157,4 @@ PrecisionRecallDisplay.from_predictions(labels, y_proba, ax=axes[1])
 axes[1].set_title("Precision-Recall Curve")
 plt.tight_layout()
 plt.savefig(out / "roc_pr_curves.png", dpi=150, bbox_inches="tight")
-print(f"  -> {out/'roc_pr_curves.png'}")
-
-print("\n" + "=" * 70)
-print("DONE — screenshot the terminal for Figure 10 (training output)")
-print("       use confusion_matrix.png for Figure 11")
-print("       use roc_pr_curves.png   for Figure 12")
-print("=" * 70)
+print("  -> roc_pr_curves.png  (saved in this folder)")
